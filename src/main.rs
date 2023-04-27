@@ -1,6 +1,6 @@
 use cfg_if::cfg_if;
 use leptos::*;
-mod app;
+mod counters;
 
 // boilerplate to run in different modes
 cfg_if! {
@@ -8,7 +8,7 @@ cfg_if! {
     if #[cfg(feature = "ssr")] {
         use actix_files::{Files};
         use actix_web::*;
-        use crate::app::*;
+        use crate::counters::*;
         use leptos_actix::{generate_route_list, LeptosRoutes};
 
         #[get("/api/events")]
@@ -16,7 +16,7 @@ cfg_if! {
             use futures::StreamExt;
 
             let stream =
-                futures::stream::once(async { crate::app::get_server_count().await.unwrap_or(0) })
+                futures::stream::once(async { crate::counters::get_server_count().await.unwrap_or(0) })
                     .chain(COUNT_CHANNEL.clone())
                     .map(|value| {
                         Ok(web::Bytes::from(format!(
@@ -31,7 +31,7 @@ cfg_if! {
         #[actix_web::main]
         async fn main() -> std::io::Result<()> {
 
-            crate::app::register_server_functions();
+            crate::counters::register_server_functions();
 
             // Setting this to None means we'll be using cargo-leptos and its env vars.
             // when not using cargo-leptos None must be replaced with Some("Cargo.toml")
@@ -60,7 +60,7 @@ cfg_if! {
     // client-only main for Trunk
     else {
         pub fn main() {
-            // isomorphic app cannot work in a Client-Side-Rendered only
+            // isomorphic counters cannot work in a Client-Side-Rendered only
             // app as a server is required to maintain state
         }
     }
