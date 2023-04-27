@@ -1,6 +1,9 @@
+use arrayvec::ArrayVec;
 use leptos::*;
-use leptos_router::*;
 use leptos_meta::*;
+use leptos_router::*;
+
+use std::sync::atomic::AtomicU8;
 
 #[cfg(feature = "ssr")]
 use std::sync::atomic::{AtomicI32, Ordering};
@@ -17,6 +20,13 @@ pub fn register_server_functions() {
 
 #[cfg(feature = "ssr")]
 static COUNT: AtomicI32 = AtomicI32::new(0);
+
+#[cfg(feature = "ssr")]
+lazy_static::lazy_static! {
+    static ref IMAGE: ArrayVec::<AtomicU8, 20> = std::iter::repeat_with(|| AtomicU8::new(0))
+        .take(20)
+        .collect();
+}
 
 #[cfg(feature = "ssr")]
 lazy_static::lazy_static! {
@@ -59,6 +69,7 @@ pub fn Counters(cx: Scope) -> impl IntoView {
                     <li><A href="">"Simple"</A></li>
                     <li><A href="form">"Form-Based"</A></li>
                     <li><A href="multi">"Multi-User"</A></li>
+                    <li><A href="game">"Game"</A></li>
                 </ul>
             </nav>
             <Link rel="shortcut icon" type_="image/ico" href="/favicon.ico"/>
@@ -71,6 +82,10 @@ pub fn Counters(cx: Scope) -> impl IntoView {
                     <Route path="form" view=|cx| view! {
                         cx,
                         <FormCounter/>
+                    }/>
+                    <Route path="game" view=|cx| view! {
+                        cx,
+                        <Game/>
                     }/>
                     <Route path="multi" view=|cx| view! {
                         cx,
@@ -93,11 +108,22 @@ pub fn Counter(cx: Scope) -> impl IntoView {
     let clear = create_action(cx, |_| clear_server_count());
     let counter = create_resource(
         cx,
-        move || (dec.version().get(), inc.version().get(), clear.version().get()),
+        move || {
+            (
+                dec.version().get(),
+                inc.version().get(),
+                clear.version().get(),
+            )
+        },
         |_| get_server_count(),
     );
 
-    let value = move || counter.read(cx).map(|count| count.unwrap_or(0)).unwrap_or(0);
+    let value = move || {
+        counter
+            .read(cx)
+            .map(|count| count.unwrap_or(0))
+            .unwrap_or(0)
+    };
     let error_msg = move || {
         counter
             .read(cx)
@@ -179,6 +205,132 @@ pub fn FormCounter(cx: Scope) -> impl IntoView {
     }
 }
 
+#[component]
+pub fn Game(cx: Scope) -> impl IntoView {
+    let adjust = create_server_action::<AdjustServerCount>(cx);
+    let clear = create_server_action::<ClearServerCount>(cx);
+
+    let counter = create_resource(
+        cx,
+        move || (adjust.version().get(), clear.version().get()),
+        |_| {
+            log::debug!("FormCounter running fetcher");
+            get_server_count()
+        },
+    );
+    let value = move || {
+        log::debug!("FormCounter looking for value");
+        counter
+            .read(cx)
+            .map(|n| n.ok())
+            .flatten()
+            .map(|n| n)
+            .unwrap_or(0)
+    };
+
+    let clean_img_src = "https://w7.pngwing.com/pngs/451/901/png-transparent-smiley-emoticon-emoji-computer-icons-smiley-miscellaneous-face-smiley.png";
+    let eraser_img_src = "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcT7E7wgauKemNYeaMcSBaPE_Pf3frDeyV_gYQ&usqp=CAU";
+    let submit_img_src =
+        "https://blog.udemy.com/wp-content/uploads/2014/02/shutterstock_61850923-300x290.jpg";
+    let minus_one_img_src =
+        "https://emoji.discadia.com/emojis/80dfe546-9a47-4008-b2a1-9d7c38b619f8.png";
+    let plus_one_img_src = "https://cdn3.emoji.gg/emojis/2606_plus_one.png";
+    let switch_img_src = move || {
+        if value() == 0 {
+            clean_img_src
+        } else {
+            eraser_img_src
+        }
+    };
+    let deck_back_img_src = "https://thumbs.dreamstime.com/b/playing-card-back-side-isolated-white-clipping-path-included-playing-card-back-side-isolated-white-172500899.jpg";
+
+    let cards = std::iter::repeat_with(|| {
+        view! { cx,
+            <tr>
+                <td>
+                <div class="container">
+                    <img src=deck_back_img_src alt="Avatar" class="image"/>
+                    <div class="overlay">
+                        <div class="text">"one"</div>
+                    </div>
+                </div>
+                </td>
+                <td>
+                <div class="container">
+                    <img src=deck_back_img_src alt="Avatar" class="image"/>
+                    <div class="overlay">
+                        <div class="text">"two"</div>
+                    </div>
+                </div>
+                </td>
+                <td>
+                <div class="container">
+                    <img src=deck_back_img_src alt="Avatar" class="image"/>
+                    <div class="overlay">
+                        <div class="text">"three"</div>
+                    </div>
+                </div>
+                </td>
+                <td>
+                <div class="container">
+                    <img src=deck_back_img_src alt="Avatar" class="image"/>
+                    <div class="overlay">
+                        <div class="text">"four"</div>
+                    </div>
+                </div>
+                </td>
+                <td>
+                <div class="container">
+                    <img src=deck_back_img_src alt="Avatar" class="image"/>
+                    <div class="overlay">
+                        <div class="text">"five"</div>
+                    </div>
+                </div>
+                </td>
+            </tr>
+        }
+    })
+    .take(5)
+    .collect::<Vec<_>>();
+    view! {
+        cx,
+        <div>
+            <h2>"Form Counter"</h2>
+            <p>"This counter uses forms to set the value on the server. When progressively enhanced, it should behave identically to the “Simple Counter.”"</p>
+            <Stylesheet id="leptos" href="/pkg/memory-match.css"/>
+            <tr>
+                // calling a server function is the same as POSTing to its API URL
+                // so we can just do that with a form and button
+                <td>
+                <ActionForm action=clear>
+                    <input type="image" src=switch_img_src alt="Submit Form" width="60"/>
+                </ActionForm>
+                </td>
+                // We can submit named arguments to the server functions
+                // by including them as input values with the same name
+                <td>
+                <ActionForm action=adjust>
+                    <input type="hidden" name="delta" value="-1"/>
+                    <input type="hidden" name="msg" value="form value down"/>
+                    <input type="image" src=minus_one_img_src alt="-1" width="40"/>
+                </ActionForm>
+                </td>
+                <td>
+                <span>"Value: " {move || value().to_string()} "!"</span>
+                </td>
+                <td>
+                <ActionForm action=adjust>
+                    <input type="hidden" name="delta" value="1"/>
+                    <input type="hidden" name="msg" value="form value up"/>
+                    <input type="image" src=plus_one_img_src alt="+1" width="40"/>
+                </ActionForm>
+                </td>
+            </tr>
+        </div>
+        <ul>{cards}</ul>
+    }
+}
+
 // This is a kind of "multi-user" counter
 // It relies on a stream of server-sent events (SSE) for the counter's value
 // Whenever another user updates the value, it will update here
@@ -197,14 +349,13 @@ pub fn MultiuserCounter(cx: Scope) -> impl IntoView {
             .expect("couldn't connect to SSE stream");
         let s = create_signal_from_stream(
             cx,
-            source.subscribe("message").unwrap().map(|value| {
-                match value {
-                    Ok(value) => {
-                        value.1.data().as_string().expect("expected string value")
-                    },
+            source
+                .subscribe("message")
+                .unwrap()
+                .map(|value| match value {
+                    Ok(value) => value.1.data().as_string().expect("expected string value"),
                     Err(_) => "0".to_string(),
-                }
-            })
+                }),
         );
 
         on_cleanup(cx, move || source.close());
@@ -212,8 +363,7 @@ pub fn MultiuserCounter(cx: Scope) -> impl IntoView {
     };
 
     #[cfg(feature = "ssr")]
-    let (multiplayer_value, _) =
-        create_signal(cx, None::<i32>);
+    let (multiplayer_value, _) = create_signal(cx, None::<i32>);
 
     view! {
         cx,
